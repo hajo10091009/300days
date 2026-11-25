@@ -114,7 +114,7 @@ LETTER_TEXT = """To. 세상에서 제일 사랑하는 0순위 내 편 수빈찌�
 From. 언제나 수빈이 편인 정훈이가"""
 
 VALID_IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".heic")
-VALID_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".ogg")
+VALID_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".ogg", ".aac")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
 
 
@@ -128,6 +128,21 @@ def get_search_dirs():
     except Exception:
         pass
     return dirs
+
+
+def get_files_signature():
+    sig = []
+    for folder in get_search_dirs():
+        if not os.path.exists(folder):
+            continue
+        try:
+            for file in sorted(os.listdir(folder)):
+                full_path = os.path.join(folder, file)
+                if os.path.isfile(full_path):
+                    sig.append((full_path, os.path.getsize(full_path)))
+        except Exception:
+            pass
+    return tuple(sig)
 
 
 def natural_sort_key(filename):
@@ -146,6 +161,7 @@ def file_to_data_uri(path):
         ".m4a": "audio/mp4",
         ".wav": "audio/wav",
         ".ogg": "audio/ogg",
+        ".aac": "audio/aac",
     }.get(ext) or mimetypes.types_map.get(ext, "application/octet-stream")
 
     with open(path, "rb") as f:
@@ -190,6 +206,7 @@ def load_media():
     slide_uris = []
     letter_bg_uri = None
     bgm_uri = ""
+    fallback_bgm_uri = ""
     quiz_img_uris = {}
 
     quiz_img_stems = set()
@@ -215,10 +232,15 @@ def load_media():
 
             stem_lower = stem.lower()
 
-            if ext_lower in VALID_AUDIO_EXTS and stem_lower == BGM_NAME.lower():
-                if not bgm_uri:
+            if ext_lower in VALID_AUDIO_EXTS:
+                if stem_lower == BGM_NAME.lower() and not bgm_uri:
                     try:
                         bgm_uri = file_to_data_uri(img_path)
+                    except Exception:
+                        pass
+                elif not fallback_bgm_uri:
+                    try:
+                        fallback_bgm_uri = file_to_data_uri(img_path)
                     except Exception:
                         pass
                 continue
@@ -247,6 +269,9 @@ def load_media():
             except Exception:
                 pass
 
+    if not bgm_uri:
+        bgm_uri = fallback_bgm_uri
+
     if not slide_uris:
         colors = ["#FFB6C1", "#FFD1DC", "#FFC0CB", "#E6E6FA", "#FFF0F5", "#FFE4E1"]
         for i in range(len(CAPTIONS)):
@@ -272,7 +297,7 @@ def load_media():
 
 
 @st.cache_data(show_spinner=False)
-def build_html():
+def build_html(files_sig):
     slide_uris, letter_bg_uri, prepared_quizzes, bgm_uri = load_media()
     days_count = (date.today() - START_DATE).days + 1
     letter_blur_px = max(0, LETTER_BG_BLUR * 2)
@@ -307,6 +332,28 @@ def build_html():
     }}
     .hidden {{ display: none !important; }}
 
+    #musicBtn {{
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      left: 14px;
+      z-index: 100;
+      border: 1.5px solid rgba(255, 130, 165, 0.35);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.88);
+      color: #402e33;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 8px 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(60, 35, 42, 0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: transform 0.12s ease, background 0.2s ease;
+    }}
+    #musicBtn:active {{
+      transform: scale(0.95);
+    }}
+
     #quizScreen {{
       position: fixed;
       inset: 0;
@@ -315,11 +362,11 @@ def build_html():
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+      padding: max(56px, calc(env(safe-area-inset-top) + 46px)) 18px max(16px, env(safe-area-inset-bottom));
     }}
     .quiz-card {{
       width: min(92vw, 640px);
-      max-height: calc(100dvh - 32px);
+      max-height: calc(100dvh - 76px);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       background: rgba(255, 255, 255, 0.92);
@@ -409,553 +456,3 @@ def build_html():
     .option-btn.correct {{
       background: #e8f8ef;
       border-color: #38b26f;
-      color: #1d6b41;
-    }}
-    .option-btn.wrong {{
-      background: #ffecef;
-      border-color: #e85d75;
-      color: #a62c42;
-    }}
-    .quiz-feedback {{
-      min-height: 24px;
-      margin-top: 8px;
-      font-size: 16px;
-      font-weight: 700;
-      color: #c24b72;
-    }}
-    .action-primary {{
-      border: none;
-      border-radius: 16px;
-      background: linear-gradient(90deg, #ff7aa2 0%, #ff5286 100%);
-      color: #ffffff;
-      font-size: 18px;
-      font-weight: 700;
-      padding: 15px 26px;
-      margin-top: 10px;
-      cursor: pointer;
-      box-shadow: 0 8px 20px rgba(255, 82, 134, 0.28);
-      transition: transform 0.12s ease;
-    }}
-    .action-primary:active {{
-      transform: scale(0.97);
-    }}
-
-    .bg-layer {{
-      position: fixed;
-      inset: -24px;
-      background-size: cover;
-      background-position: center;
-      transition: background-image 0.5s ease, opacity 0.5s ease;
-      z-index: 0;
-    }}
-    #slideBg {{
-      filter: blur(22px) saturate(1.05);
-      transform: scale(1.08);
-    }}
-    #slideBgTint {{
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 249, 250, 0.58);
-      z-index: 1;
-    }}
-    #letterBg {{
-      background-image: url("{letter_bg_uri}");
-      filter: blur({letter_blur_px}px);
-      transform: scale(1.04);
-      opacity: 0;
-      pointer-events: none;
-      z-index: 2;
-    }}
-    #letterBgTint {{
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 255, 255, {letter_white_alpha});
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.5s ease;
-      z-index: 3;
-    }}
-    .app {{
-      position: relative;
-      z-index: 4;
-      width: 100%;
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: max(18px, env(safe-area-inset-top)) 24px max(20px, env(safe-area-inset-bottom));
-      gap: 12px;
-    }}
-    #titleLabel {{
-      font-size: clamp(18px, 2.5vw, 24px);
-      font-weight: 700;
-      text-align: center;
-      color: #38292e;
-      text-shadow: 0 1px 8px rgba(255, 255, 255, 0.7);
-      flex-shrink: 0;
-    }}
-    .stage {{
-      flex: 1;
-      min-height: 0;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }}
-    .photo-frame {{
-      max-width: min(92vw, 960px);
-      max-height: 100%;
-      background: #ffffff;
-      padding: clamp(10px, 1.4vw, 18px);
-      border-radius: 6px;
-      box-shadow: 0 14px 36px rgba(60, 35, 42, 0.16);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }}
-    #slideImg {{
-      display: block;
-      max-width: 100%;
-      max-height: calc(100dvh - 235px);
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      border-radius: 2px;
-    }}
-    #captionLabel {{
-      max-width: 860px;
-      min-height: 54px;
-      font-size: clamp(16px, 2.1vw, 20px);
-      line-height: 1.5;
-      text-align: center;
-      white-space: pre-line;
-      color: #33262b;
-      text-shadow: 0 1px 6px rgba(255, 255, 255, 0.8);
-      flex-shrink: 0;
-    }}
-    .controls {{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }}
-    .ctrl-btn {{
-      border: none;
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.78);
-      color: #402e33;
-      font-size: 16px;
-      font-weight: 600;
-      padding: 11px 18px;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(60, 35, 42, 0.10);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      transition: transform 0.12s ease, background 0.2s ease;
-    }}
-    .ctrl-btn:active {{
-      transform: scale(0.96);
-    }}
-    #letterBtn {{
-      display: none;
-      padding: 12px 26px;
-      font-size: 17px;
-      background: rgba(255, 255, 255, 0.90);
-    }}
-    #letterBox {{
-      display: none;
-      width: min(88vw, 760px);
-      max-height: calc(100dvh - 150px);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      background: rgba(255, 255, 255, 0.68);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: clamp(24px, 4vw, 44px);
-      font-size: clamp(17px, 2.2vw, 21px);
-      line-height: 1.85;
-      text-align: center;
-      white-space: pre-line;
-      color: #111111;
-      box-shadow: 0 12px 32px rgba(40, 24, 30, 0.12);
-    }}
-  </style>
-</head>
-<body>
-  <audio id="bgmAudio" loop preload="auto" playsinline></audio>
-
-  <div id="quizScreen">
-    <div class="quiz-card">
-      <div>
-        <div class="quiz-header">💝 300일 기념 깜짝 퀴즈 💝</div>
-        <div class="quiz-sub">퀴즈를 모두 맞춰 게이지를 100% 채우면 편지가 열려!</div>
-      </div>
-
-      <div class="gauge-wrap">
-        <div class="gauge-info">
-          <span id="gaugeText">게이지 0 / {safe_target}</span>
-          <span id="gaugePercent">0%</span>
-        </div>
-        <div class="gauge-track">
-          <div class="gauge-fill" id="gaugeFill"></div>
-        </div>
-      </div>
-
-      <div id="quizBody">
-        <div class="question-text" id="questionText"></div>
-        <img id="quizImage" class="quiz-image hidden" alt="퀴즈 사진" />
-        <div class="options" id="optionsBox"></div>
-        <div class="quiz-feedback" id="quizFeedback"></div>
-      </div>
-
-      <div id="retryBox" class="hidden">
-        <div class="question-text">조금만 더 채우면 편지가 열려!<br/>틀린 문제 다시 풀어볼까? 💕</div>
-        <button class="action-primary" id="retryBtn">🔄 틀린 문제 다시 풀기</button>
-      </div>
-
-      <div id="unlockBox" class="hidden">
-        <div class="question-text">🎉 게이지 100% 완성! 🎉<br/>와아~ 문제를 다 맞췄어!! 이제 편지를 볼까?</div>
-        <button class="action-primary" id="openGiftBtn">💌 300일 편지 보기</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="slideshowWrapper" class="hidden">
-    <div id="slideBg" class="bg-layer"></div>
-    <div id="slideBgTint"></div>
-    <div id="letterBg" class="bg-layer"></div>
-    <div id="letterBgTint"></div>
-
-    <div class="app">
-      <div id="titleLabel"></div>
-
-      <div class="stage" id="photoStage">
-        <div class="photo-frame">
-          <img id="slideImg" alt="추억 사진" />
-        </div>
-      </div>
-
-      <div id="letterBox">{letter_html}</div>
-
-      <div id="captionLabel"></div>
-
-      <div class="controls" id="controls">
-        <button class="ctrl-btn" id="prevBtn">◀ 이전</button>
-        <button class="ctrl-btn" id="playBtn">⏸ 일시정지</button>
-        <button class="ctrl-btn" id="nextBtn">다음 ▶</button>
-        <button class="ctrl-btn" id="letterBtn">💌 편지 보기</button>
-        <button class="ctrl-btn hidden" id="musicBtn">🔊 음악 끄기</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const IMAGES = {slides_json};
-    const CAPTIONS = {captions_json};
-    const QUIZZES = {quizzes_json};
-    const BGM_URI = {bgm_json};
-    const TARGET_SCORE = {safe_target};
-    const DAYS_COUNT = {days_count};
-    const SLIDE_DELAY_MS = {int(SLIDE_DELAY * 1000)};
-
-    const bgmAudio = document.getElementById("bgmAudio");
-    const musicBtn = document.getElementById("musicBtn");
-    let musicPlaying = false;
-    let hasAudio = false;
-
-    function dataUriToBlobUrl(dataUri) {{
-      const parts = dataUri.split(",");
-      const mime = parts[0].match(/:(.*?);/)[1];
-      const binary = atob(parts[1]);
-      const len = binary.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {{
-        bytes[i] = binary.charCodeAt(i);
-      }}
-      return URL.createObjectURL(new Blob([bytes], {{ type: mime }}));
-    }}
-
-    if (BGM_URI) {{
-      try {{
-        bgmAudio.src = dataUriToBlobUrl(BGM_URI);
-      }} catch (e) {{
-        bgmAudio.src = BGM_URI;
-      }}
-      bgmAudio.load();
-      hasAudio = true;
-      musicBtn.classList.remove("hidden");
-    }}
-
-    function startMusic() {{
-      if (!hasAudio) return;
-      const playPromise = bgmAudio.play();
-      if (playPromise !== undefined) {{
-        playPromise.then(() => {{
-          musicPlaying = true;
-          musicBtn.textContent = "🔊 음악 끄기";
-        }}).catch(() => {{
-          musicPlaying = false;
-          musicBtn.textContent = "🔇 음악 켜기";
-        }});
-      }}
-    }}
-
-    musicBtn.addEventListener("click", () => {{
-      if (!hasAudio) return;
-      if (musicPlaying) {{
-        bgmAudio.pause();
-        musicPlaying = false;
-        musicBtn.textContent = "🔇 음악 켜기";
-      }} else {{
-        startMusic();
-      }}
-    }});
-
-    const quizScreen = document.getElementById("quizScreen");
-    const slideshowWrapper = document.getElementById("slideshowWrapper");
-    const gaugeText = document.getElementById("gaugeText");
-    const gaugePercent = document.getElementById("gaugePercent");
-    const gaugeFill = document.getElementById("gaugeFill");
-    const quizBody = document.getElementById("quizBody");
-    const questionText = document.getElementById("questionText");
-    const quizImage = document.getElementById("quizImage");
-    const optionsBox = document.getElementById("optionsBox");
-    const quizFeedback = document.getElementById("quizFeedback");
-    const retryBox = document.getElementById("retryBox");
-    const retryBtn = document.getElementById("retryBtn");
-    const unlockBox = document.getElementById("unlockBox");
-    const openGiftBtn = document.getElementById("openGiftBtn");
-
-    const quizState = {{
-      score: 0,
-      queue: QUIZZES.map((_, i) => i),
-      missed: [],
-      pos: 0,
-      locked: false
-    }};
-
-    function updateGauge() {{
-      const pct = Math.min(100, Math.round((quizState.score / TARGET_SCORE) * 100));
-      gaugeText.textContent = `게이지 ${{quizState.score}} / ${{TARGET_SCORE}}`;
-      gaugePercent.textContent = `${{pct}}%`;
-      gaugeFill.style.width = `${{pct}}%`;
-    }}
-
-    function showUnlock() {{
-      quizBody.classList.add("hidden");
-      retryBox.classList.add("hidden");
-      unlockBox.classList.remove("hidden");
-    }}
-
-    function renderQuestion() {{
-      if (quizState.score >= TARGET_SCORE) {{
-        showUnlock();
-        return;
-      }}
-      if (quizState.pos >= quizState.queue.length) {{
-        if (quizState.missed.length > 0) {{
-          quizBody.classList.add("hidden");
-          retryBox.classList.remove("hidden");
-        }} else {{
-          showUnlock();
-        }}
-        return;
-      }}
-
-      quizState.locked = false;
-      quizBody.classList.remove("hidden");
-      retryBox.classList.add("hidden");
-      quizFeedback.textContent = "";
-
-      const item = QUIZZES[quizState.queue[quizState.pos]];
-      questionText.textContent = item.q;
-
-      if (item.image_uri) {{
-        quizImage.src = item.image_uri;
-        quizImage.classList.remove("hidden");
-      }} else {{
-        quizImage.removeAttribute("src");
-        quizImage.classList.add("hidden");
-      }}
-
-      optionsBox.innerHTML = "";
-      item.options.forEach((optText, idx) => {{
-        const btn = document.createElement("button");
-        btn.className = "option-btn";
-        btn.textContent = optText;
-        btn.addEventListener("click", () => handleAnswer(idx, btn, item));
-        optionsBox.appendChild(btn);
-      }});
-    }}
-
-    function handleAnswer(selectedIdx, btn, item) {{
-      if (quizState.locked) return;
-      quizState.locked = true;
-
-      if (selectedIdx + 1 === item.answer) {{
-        btn.classList.add("correct");
-        quizState.score += 1;
-        updateGauge();
-        quizFeedback.textContent = "정답! 게이지가 올라갔어 ❤️";
-
-        if (quizState.score >= TARGET_SCORE) {{
-          setTimeout(showUnlock, 750);
-        }} else {{
-          quizState.pos += 1;
-          setTimeout(renderQuestion, 800);
-        }}
-      }} else {{
-        btn.classList.add("wrong");
-        quizState.missed.push(quizState.queue[quizState.pos]);
-        quizFeedback.textContent = "아쉽다! 다음 문제로 넘어갈게 😅";
-        quizState.pos += 1;
-        setTimeout(renderQuestion, 850);
-      }}
-    }}
-
-    retryBtn.addEventListener("click", () => {{
-      quizState.queue = [...quizState.missed];
-      quizState.missed = [];
-      quizState.pos = 0;
-      renderQuestion();
-    }});
-
-    const state = {{
-      index: 0,
-      playing: true,
-      finished: false,
-      letterMode: false,
-      timerId: null
-    }};
-
-    const titleLabel = document.getElementById("titleLabel");
-    const slideImg = document.getElementById("slideImg");
-    const slideBg = document.getElementById("slideBg");
-    const slideBgTint = document.getElementById("slideBgTint");
-    const letterBg = document.getElementById("letterBg");
-    const letterBgTint = document.getElementById("letterBgTint");
-    const photoStage = document.getElementById("photoStage");
-    const captionLabel = document.getElementById("captionLabel");
-    const letterBox = document.getElementById("letterBox");
-    const prevBtn = document.getElementById("prevBtn");
-    const playBtn = document.getElementById("playBtn");
-    const nextBtn = document.getElementById("nextBtn");
-    const letterBtn = document.getElementById("letterBtn");
-
-    function finishSlideshow() {{
-      state.playing = false;
-      state.finished = true;
-      prevBtn.classList.add("hidden");
-      playBtn.classList.add("hidden");
-      nextBtn.classList.add("hidden");
-      letterBtn.style.display = "inline-block";
-    }}
-
-    function updateDisplay() {{
-      const idx = state.index;
-      const total = IMAGES.length;
-      titleLabel.textContent = `❤️ 우리가 사랑한 지 ${{DAYS_COUNT}}일째 ❤️`;
-      slideImg.src = IMAGES[idx];
-      slideBg.style.backgroundImage = `url("${{IMAGES[idx]}}")`;
-      captionLabel.textContent = idx < CAPTIONS.length ? CAPTIONS[idx] : CAPTIONS[CAPTIONS.length - 1];
-      if (idx >= total - 1) {{
-        finishSlideshow();
-      }}
-    }}
-
-    function startSlideshow() {{
-      startMusic();
-      quizScreen.classList.add("hidden");
-      slideshowWrapper.classList.remove("hidden");
-      updateDisplay();
-      if (!state.timerId) {{
-        state.timerId = setInterval(() => {{
-          if (state.playing && !state.letterMode && !state.finished) {{
-            if (state.index < IMAGES.length - 1) {{
-              state.index += 1;
-              updateDisplay();
-            }} else {{
-              finishSlideshow();
-            }}
-          }}
-        }}, SLIDE_DELAY_MS);
-      }}
-    }}
-
-    openGiftBtn.addEventListener("click", startSlideshow);
-
-    prevBtn.addEventListener("click", () => {{
-      if (state.index > 0) {{
-        state.index -= 1;
-        updateDisplay();
-      }}
-    }});
-
-    playBtn.addEventListener("click", () => {{
-      state.playing = !state.playing;
-      playBtn.textContent = state.playing ? "⏸ 일시정지" : "▶ 재생";
-    }});
-
-    nextBtn.addEventListener("click", () => {{
-      if (state.index < IMAGES.length - 1) {{
-        state.index += 1;
-        updateDisplay();
-      }} else {{
-        finishSlideshow();
-      }}
-    }});
-
-    letterBtn.addEventListener("click", () => {{
-      state.letterMode = true;
-      titleLabel.textContent = `❤️ 우리가 사랑한 지 ${{DAYS_COUNT}}일째 ❤️`;
-      photoStage.classList.add("hidden");
-      captionLabel.classList.add("hidden");
-      letterBtn.classList.add("hidden");
-      slideBg.style.opacity = "0";
-      slideBgTint.style.opacity = "0";
-      letterBg.style.opacity = "1";
-      letterBgTint.style.opacity = "1";
-      letterBox.style.display = "block";
-    }});
-
-    updateGauge();
-    if (QUIZZES.length === 0) {{
-      startSlideshow();
-    }} else {{
-      renderQuestion();
-    }}
-  </script>
-</body>
-</html>
-"""
-
-
-st.markdown(
-    """
-    <style>
-      #MainMenu, header, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] {
-        display: none !important;
-      }
-      .block-container {
-        padding: 0 !important;
-        margin: 0 !important;
-        max-width: 100% !important;
-      }
-      iframe {
-        position: fixed !important;
-        inset: 0 !important;
-        width: 100vw !important;
-        height: 100dvh !important;
-        border: none !important;
-        z-index: 9999 !important;
-      }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-components.html(build_html(), scrolling=False)
