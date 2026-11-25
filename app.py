@@ -362,11 +362,11 @@ def build_html(files_sig):
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: max(56px, calc(env(safe-area-inset-top) + 46px)) 18px max(16px, env(safe-area-inset-bottom));
+      padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
     }}
     .quiz-card {{
       width: min(92vw, 640px);
-      max-height: calc(100dvh - 76px);
+      max-height: calc(100dvh - 32px);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       background: rgba(255, 255, 255, 0.92);
@@ -634,7 +634,6 @@ def build_html(files_sig):
 </head>
 <body>
   <audio id="bgmAudio" loop preload="auto" playsinline></audio>
-  <button id="musicBtn">🔇 음악 켜기</button>
 
   <div id="quizScreen">
     <div class="quiz-card">
@@ -673,6 +672,7 @@ def build_html(files_sig):
   </div>
 
   <div id="slideshowWrapper" class="hidden">
+    <button id="musicBtn" class="hidden">🔊 음악 끄기</button>
     <div id="slideBg" class="bg-layer"></div>
     <div id="slideBgTint"></div>
     <div id="letterBg" class="bg-layer"></div>
@@ -737,9 +737,7 @@ def build_html(files_sig):
       }}
       bgmAudio.load();
       hasAudio = true;
-      musicBtn.textContent = "🔇 음악 켜기";
-    }} else {{
-      musicBtn.textContent = "🔇 파일 없음";
+      musicBtn.classList.remove("hidden");
     }}
 
     function startMusic() {{
@@ -771,10 +769,7 @@ def build_html(files_sig):
     }}
 
     musicBtn.addEventListener("click", () => {{
-      if (!hasAudio) {{
-        alert("GitHub 저장소에 .mp3 또는 .m4a 음악 파일을 올린 뒤 Reboot app을 눌러주세요.");
-        return;
-      }}
+      if (!hasAudio) return;
       if (musicPlaying) {{
         bgmAudio.pause();
         musicPlaying = false;
