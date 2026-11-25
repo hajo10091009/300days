@@ -21,6 +21,7 @@ SLIDE_DELAY = 8.0
 LETTER_BG_NAME = "letter_bg"
 LETTER_BG_BLUR = 3
 LETTER_BG_WHITE_BLEND = 0.35
+BGM_NAME = "bgm"
 
 QUIZZES = [
     {
@@ -112,7 +113,8 @@ LETTER_TEXT = """To. 세상에서 제일 사랑하는 0순위 내 편 수빈찌�
 
 From. 언제나 수빈이 편인 정훈이가"""
 
-VALID_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".heic")
+VALID_IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".heic")
+VALID_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".ogg")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
 
 
@@ -134,15 +136,18 @@ def natural_sort_key(filename):
 
 def file_to_data_uri(path):
     ext = os.path.splitext(path)[1].lower()
-    mime = mimetypes.types_map.get(ext)
-    if not mime:
-        mime = {
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".png": "image/png",
-            ".webp": "image/webp",
-            ".heic": "image/heic",
-        }.get(ext, "application/octet-stream")
+    mime = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".heic": "image/heic",
+        ".mp3": "audio/mpeg",
+        ".m4a": "audio/mp4",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+    }.get(ext) or mimetypes.types_map.get(ext, "application/octet-stream")
+
     with open(path, "rb") as f:
         encoded = base64.b64encode(f.read()).decode("ascii")
     return f"data:{mime};base64,{encoded}"
@@ -184,6 +189,7 @@ def load_media():
     search_dirs = get_search_dirs()
     slide_uris = []
     letter_bg_uri = None
+    bgm_uri = ""
     quiz_img_uris = {}
 
     quiz_img_stems = set()
@@ -202,13 +208,23 @@ def load_media():
 
         for file in files:
             stem, ext = os.path.splitext(file)
-            if ext.lower() not in VALID_EXTS:
-                continue
+            ext_lower = ext.lower()
             img_path = os.path.join(folder, file)
             if not os.path.isfile(img_path):
                 continue
 
             stem_lower = stem.lower()
+
+            if ext_lower in VALID_AUDIO_EXTS and stem_lower == BGM_NAME.lower():
+                if not bgm_uri:
+                    try:
+                        bgm_uri = file_to_data_uri(img_path)
+                    except Exception:
+                        pass
+                continue
+
+            if ext_lower not in VALID_IMAGE_EXTS:
+                continue
 
             if stem_lower == LETTER_BG_NAME.lower():
                 if letter_bg_uri is None:
@@ -252,12 +268,12 @@ def load_media():
             item["image_uri"] = quiz_img_uris.get(key, make_quiz_placeholder_uri(os.path.splitext(img_name)[0]))
         prepared_quizzes.append(item)
 
-    return slide_uris, letter_bg_uri, prepared_quizzes
+    return slide_uris, letter_bg_uri, prepared_quizzes, bgm_uri
 
 
 @st.cache_data(show_spinner=False)
 def build_html():
-    slide_uris, letter_bg_uri, prepared_quizzes = load_media()
+    slide_uris, letter_bg_uri, prepared_quizzes, bgm_uri = load_media()
     days_count = (date.today() - START_DATE).days + 1
     letter_blur_px = max(0, LETTER_BG_BLUR * 2)
     letter_white_alpha = max(0.0, min(1.0, LETTER_BG_WHITE_BLEND))
@@ -266,6 +282,7 @@ def build_html():
     slides_json = json.dumps(slide_uris, ensure_ascii=False)
     captions_json = json.dumps(CAPTIONS, ensure_ascii=False)
     quizzes_json = json.dumps(prepared_quizzes, ensure_ascii=False)
+    bgm_json = json.dumps(bgm_uri, ensure_ascii=False)
     letter_html = html.escape(LETTER_TEXT)
 
     return f"""<!DOCTYPE html>
@@ -519,7 +536,8 @@ def build_html():
     }}
     .controls {{
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
@@ -531,7 +549,7 @@ def build_html():
       color: #402e33;
       font-size: 16px;
       font-weight: 600;
-      padding: 11px 20px;
+      padding: 11px 18px;
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(60, 35, 42, 0.10);
       backdrop-filter: blur(8px);
@@ -550,7 +568,7 @@ def build_html():
     #letterBox {{
       display: none;
       width: min(88vw, 760px);
-      max-height: calc(100dvh - 130px);
+      max-height: calc(100dvh - 150px);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       background: rgba(255, 255, 255, 0.68);
@@ -568,6 +586,8 @@ def build_html():
   </style>
 </head>
 <body>
+  <audio id="bgmAudio" loop preload="auto" playsinline></audio>
+
   <div id="quizScreen">
     <div class="quiz-card">
       <div>
@@ -628,6 +648,7 @@ def build_html():
         <button class="ctrl-btn" id="playBtn">⏸ 일시정지</button>
         <button class="ctrl-btn" id="nextBtn">다음 ▶</button>
         <button class="ctrl-btn" id="letterBtn">💌 편지 보기</button>
+        <button class="ctrl-btn hidden" id="musicBtn">🔊 음악 끄기</button>
       </div>
     </div>
   </div>
@@ -636,9 +657,63 @@ def build_html():
     const IMAGES = {slides_json};
     const CAPTIONS = {captions_json};
     const QUIZZES = {quizzes_json};
+    const BGM_URI = {bgm_json};
     const TARGET_SCORE = {safe_target};
     const DAYS_COUNT = {days_count};
     const SLIDE_DELAY_MS = {int(SLIDE_DELAY * 1000)};
+
+    const bgmAudio = document.getElementById("bgmAudio");
+    const musicBtn = document.getElementById("musicBtn");
+    let musicPlaying = false;
+    let hasAudio = false;
+
+    function dataUriToBlobUrl(dataUri) {{
+      const parts = dataUri.split(",");
+      const mime = parts[0].match(/:(.*?);/)[1];
+      const binary = atob(parts[1]);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {{
+        bytes[i] = binary.charCodeAt(i);
+      }}
+      return URL.createObjectURL(new Blob([bytes], {{ type: mime }}));
+    }}
+
+    if (BGM_URI) {{
+      try {{
+        bgmAudio.src = dataUriToBlobUrl(BGM_URI);
+      }} catch (e) {{
+        bgmAudio.src = BGM_URI;
+      }}
+      bgmAudio.load();
+      hasAudio = true;
+      musicBtn.classList.remove("hidden");
+    }}
+
+    function startMusic() {{
+      if (!hasAudio) return;
+      const playPromise = bgmAudio.play();
+      if (playPromise !== undefined) {{
+        playPromise.then(() => {{
+          musicPlaying = true;
+          musicBtn.textContent = "🔊 음악 끄기";
+        }}).catch(() => {{
+          musicPlaying = false;
+          musicBtn.textContent = "🔇 음악 켜기";
+        }});
+      }}
+    }}
+
+    musicBtn.addEventListener("click", () => {{
+      if (!hasAudio) return;
+      if (musicPlaying) {{
+        bgmAudio.pause();
+        musicPlaying = false;
+        musicBtn.textContent = "🔇 음악 켜기";
+      }} else {{
+        startMusic();
+      }}
+    }});
 
     const quizScreen = document.getElementById("quizScreen");
     const slideshowWrapper = document.getElementById("slideshowWrapper");
@@ -793,6 +868,7 @@ def build_html():
     }}
 
     function startSlideshow() {{
+      startMusic();
       quizScreen.classList.add("hidden");
       slideshowWrapper.classList.remove("hidden");
       updateDisplay();
