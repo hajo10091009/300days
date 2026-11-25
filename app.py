@@ -362,47 +362,47 @@ def build_html(files_sig):
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: max(16px, env(safe-area-inset-top)) 18px max(16px, env(safe-area-inset-bottom));
+      padding: max(10px, env(safe-area-inset-top)) 14px max(10px, env(safe-area-inset-bottom));
     }}
     .quiz-card {{
-      width: min(92vw, 640px);
-      max-height: calc(100dvh - 32px);
+      width: min(92vw, 620px);
+      max-height: calc(100dvh - 20px);
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       background: rgba(255, 255, 255, 0.92);
-      border-radius: 26px;
-      padding: clamp(20px, 3.5vw, 34px);
+      border-radius: 24px;
+      padding: clamp(14px, 2vh, 22px) clamp(16px, 3vw, 28px);
       box-shadow: 0 18px 44px rgba(120, 60, 80, 0.12);
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
       text-align: center;
     }}
     .quiz-header {{
-      font-size: clamp(20px, 2.8vw, 26px);
+      font-size: clamp(18px, 2.4vw, 23px);
       font-weight: 800;
       color: #3d2730;
     }}
     .quiz-sub {{
-      font-size: 15px;
+      font-size: 13.5px;
       color: #7d5d68;
-      margin-top: 6px;
+      margin-top: 3px;
     }}
     .gauge-wrap {{
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 5px;
     }}
     .gauge-info {{
       display: flex;
       justify-content: space-between;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       color: #b84a6f;
     }}
     .gauge-track {{
       width: 100%;
-      height: 18px;
+      height: 12px;
       background: #f5dde6;
       border-radius: 999px;
       overflow: hidden;
@@ -416,37 +416,38 @@ def build_html(files_sig):
       transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
     }}
     .question-text {{
-      font-size: clamp(18px, 2.5vw, 22px);
+      font-size: clamp(16px, 2.2vw, 20px);
       font-weight: 700;
-      line-height: 1.5;
+      line-height: 1.38;
       color: #2f2026;
-      padding: 4px;
+      padding: 2px;
     }}
     .quiz-image {{
       display: block;
       max-width: 100%;
-      max-height: 240px;
+      max-height: min(23dvh, 175px);
       width: auto;
       height: auto;
-      margin: 4px auto 12px;
-      border-radius: 14px;
+      margin: 4px auto 8px;
+      border-radius: 12px;
       object-fit: contain;
-      box-shadow: 0 8px 22px rgba(60, 35, 42, 0.14);
+      box-shadow: 0 6px 18px rgba(60, 35, 42, 0.14);
     }}
     .options {{
       display: grid;
       grid-template-columns: 1fr;
-      gap: 10px;
+      gap: 7px;
+      margin-top: 4px;
     }}
     .option-btn {{
       width: 100%;
       border: 2px solid #f2dce4;
-      border-radius: 16px;
+      border-radius: 13px;
       background: #ffffff;
       color: #3c2a31;
-      font-size: 17px;
+      font-size: 15.5px;
       font-weight: 600;
-      padding: 13px 18px;
+      padding: 10px 14px;
       cursor: pointer;
       transition: transform 0.12s ease, background 0.2s ease, border-color 0.2s ease;
     }}
@@ -464,9 +465,9 @@ def build_html(files_sig):
       color: #a62c42;
     }}
     .quiz-feedback {{
-      min-height: 24px;
-      margin-top: 8px;
-      font-size: 16px;
+      min-height: 22px;
+      margin-top: 6px;
+      font-size: 15px;
       font-weight: 700;
       color: #c24b72;
     }}
@@ -475,16 +476,44 @@ def build_html(files_sig):
       border-radius: 16px;
       background: linear-gradient(90deg, #ff7aa2 0%, #ff5286 100%);
       color: #ffffff;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
-      padding: 15px 26px;
-      margin-top: 10px;
+      padding: 13px 24px;
+      margin-top: 8px;
       cursor: pointer;
       box-shadow: 0 8px 20px rgba(255, 82, 134, 0.28);
       transition: transform 0.12s ease;
     }}
     .action-primary:active {{
       transform: scale(0.97);
+    }}
+
+    @media (max-height: 700px) {{
+      .quiz-card {{
+        gap: 7px;
+        padding: 12px 16px;
+      }}
+      .quiz-header {{
+        font-size: 18px;
+      }}
+      .quiz-sub {{
+        font-size: 12.5px;
+      }}
+      .quiz-image {{
+        max-height: 19dvh;
+        margin: 2px auto 6px;
+      }}
+      .options {{
+        gap: 6px;
+      }}
+      .option-btn {{
+        padding: 8px 12px;
+        font-size: 14.5px;
+      }}
+      .quiz-feedback {{
+        margin-top: 4px;
+        font-size: 14px;
+      }}
     }}
 
     .bg-layer {{
